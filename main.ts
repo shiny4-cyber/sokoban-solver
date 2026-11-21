@@ -21,7 +21,7 @@ const OUTPUT = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 /** States one room's search may expand before it gives up. */
 const ROOM_STATES = 400_000;
 /** States a whole-level search may expand before it gives up. */
-const LEVEL_STATES = 600_000;
+const LEVEL_STATES = 200_000;
 
 const DIRS = [
   [0, -1, 'u', 'U'],
@@ -267,10 +267,6 @@ function solvePushOptimal(level, maxStates) {
         }
       };
       walk(0, 0);
-      if (best === Infinity && process.env.DBG && !globalThis.__dbgd) {
-        globalThis.__dbgd = 1;
-        console.error('estimate inf; boxes', boxes, 'goals', goals, 'cost', JSON.stringify(c));
-      }
       return best;
     }
     let sum = 0;
@@ -324,10 +320,7 @@ function solvePushOptimal(level, maxStates) {
   const heap = [];
   let seq = 0;
   const h0 = estimate(level.boxes);
-  if (h0 === Infinity) {
-    if (process.env.DBG) console.error('h0 infinite');
-    return null;
-  }
+  if (h0 === Infinity) return null;
   heapPush(heap, { f: h0, g: 0, seq: seq++, idx: 0 });
 
   let found = -1;
@@ -392,10 +385,7 @@ function solvePushOptimal(level, maxStates) {
     }
     for (const b of boxes) occupied[b] = 0;
   }
-  if (found < 0) {
-    if (process.env.DBG) console.error('give up: expanded', expanded, 'open', heap.length, 'goalDist', h0, 'boxes', level.boxes.length);
-    return null;
-  }
+  if (found < 0) return null;
 
   // The push path, back to front, then the moves: walk to each push's square, then push.
   const path = [];
@@ -407,8 +397,10 @@ function solvePushOptimal(level, maxStates) {
   for (const s of path) {
     const mv = stMove[s];
     for (const b of boxes) occupied[b] = 1;
-    moves += walkTo(w, wall, occupied, player, standSquare(mv.from, mv.to));
+    const walk = walkTo(w, wall, occupied, player, standSquare(mv.from, mv.to));
     for (const b of boxes) occupied[b] = 0;
+    if (walk === null) return null;
+    moves += walk;
     moves += mv.letter;
     player = mv.from;
     boxes = stBoxes[s];
